@@ -57,7 +57,8 @@ echo "TRAEFIK_DASHBOARD_CREDENTIALS=$HASH" > "$TRAFFIK_DIR/.env"
 echo "Traefik setup complete. Dashboard credentials have been saved in .env file in the Traefik directory."
 
 # Execute docker compose to recreate and start the containers
-sudo docker compose up -d --force-recreate  "$TRAFFIK_DIR/docker-compose.yml"
+cd "$TRAFFIK_DIR"
+sudo docker compose up -d
 
 # Output to let the user know that the containers are being recreated
 echo "Docker Compose containers have been recreated and started."
