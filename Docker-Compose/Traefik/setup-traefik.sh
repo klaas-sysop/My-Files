@@ -11,7 +11,6 @@ PASSWORD="your_password"        # Specify the password for the Traefik dashboard
 # Add the existing Linux user to the Docker group to allow Docker usage without sudo
 echo "Adding $LINUX_USER to the Docker group..."
 sudo usermod -aG docker "$LINUX_USER"
-newgrp docker
 
 # Prompt the user to log out and back in to apply Docker group changes
 echo "The user $LINUX_USER has been added to the Docker group. Please log out and back in for the changes to take effect."
@@ -37,7 +36,7 @@ if [ ! -f "$TRAFFIK_DIR/cf_api_token.txt" ]; then
 fi
 
 # Create Docker network named "proxy"
-docker network create proxy
+sudo docker network create proxy
 
 # Install apache2-utils for htpasswd (only if not already installed)
 if ! command -v htpasswd &>/dev/null; then
@@ -58,7 +57,7 @@ echo "TRAEFIK_DASHBOARD_CREDENTIALS=$HASH" > "$TRAFFIK_DIR/.env"
 echo "Traefik setup complete. Dashboard credentials have been saved in .env file in the Traefik directory."
 
 # Execute docker compose to recreate and start the containers
-docker compose up -d --force-recreate  "$TRAFFIK_DIR/docker-compose.yml"
+sudo docker compose up -d --force-recreate  "$TRAFFIK_DIR/docker-compose.yml"
 
 # Output to let the user know that the containers are being recreated
 echo "Docker Compose containers have been recreated and started."
