@@ -46,7 +46,7 @@ if ! command -v htpasswd &>/dev/null; then
 fi
 
 # Generate the hash for the user password
-HASH=$(echo "$PASSWORD" | htpasswd -nB "$USER" | sed -e 's/\$/\$\$/g')
+HASH=$(htpasswd -nbB "$USER" "$PASSWORD" | sed -e 's/\$/\$\$/g')
 
 # Display the hash output to the user
 echo "Generated hash for $USER: $HASH"
