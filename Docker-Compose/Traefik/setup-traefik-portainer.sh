@@ -1,8 +1,9 @@
 #!/bin/bash
+# chmod +x setup-traefik.sh
 
 # Set variables
-TRAFFIK_DIR="/path/to/traefik"  # Specify the Traefik directory
-DATA_DIR="/path/to/data"        # Specify the data directory
+TRAFFIK_DIR="$HOME/traefik"     # Specify the Traefik directory
+DATA_DIR="$HOME/traefik/data"   # Specify the data directory
 LINUX_USER="linux-user"         # Specify the Linux user for Docker admin
 USER="your_username"            # Specify the user variable (for Traefik dashboard)
 PASSWORD="your_password"        # Specify the password for the Traefik dashboard (replace with your actual password)
