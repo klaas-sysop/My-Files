@@ -1,0 +1,20 @@
+version: "3.8"
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - GENERIC_TIMEZONE=Europe/Amsterdam
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:
+    external: true
+
+# I am Getting my certs from my traefik thats on a other vm
