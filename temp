@@ -1,0 +1,58 @@
+version: "3"
+services:
+  db:
+    image: mysql:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: MSPress#1
+      MYSQL_DATABASE: databasename
+      MYSQL_USER: mysqluser
+      MYSQL_PASSWORD: MSPress#1
+
+  wordpress:
+    depends_on:
+      - db
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: mysqluser
+      WORDPRESS_DB_PASSWORD: MSPress#1
+      WORDPRESS_DB_NAME: databasename
+    volumes:
+      - "./:/var/www/html"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: db
+      PMA_USER: mysqluser
+      PMA_PASSWORD: MSPress#1
+
+  openldap:
+    image: osixia/openldap:latest
+    restart: always
+    environment:
+      LDAP_ORGANISATION: "terborgh"
+      LDAP_DOMAIN: "terborgh.local"
+      LDAP_ADMIN_PASSWORD: MSPress#1
+    ports:
+      - "389:389"
+
+  phpldapadmin:
+    image: osixia/phpldapadmin:latest
+    restart: always
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: openldap
+    ports:
+      - "6443:443"
+
+volumes:
+  mysql: {}
