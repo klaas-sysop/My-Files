@@ -56,3 +56,16 @@ services:
 
 volumes:
   mysql: {}
+
+# Gebruik het officiële WordPress-image als basis
+FROM wordpress:latest
+
+# Stel de werkdirectory in binnen de container
+WORKDIR /var/www/html
+
+# Installeer benodigde extensies of voer andere configuraties uit (optioneel)
+# Bijv. RUN apt-get update && apt-get install -y vim
+
+# Stel de standaard commando in die uitgevoerd wordt
+CMD ["apache2-foreground"]
+
