@@ -1,75 +1,47 @@
-version: "3"
-services:
-  db:
-    image: mysql:latest
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: MSPress#1
-      MYSQL_DATABASE: databasename
-      MYSQL_USER: mysqluser
-      MYSQL_PASSWORD: MSPress#1
+#!/bin/bash
+set -e
 
-  wordpress:
-    depends_on:
-      - db
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: always
-    ports:
-      - "80:80"
-    environment:
-      WORDPRESS_DB_HOST: db:3306
-      WORDPRESS_DB_USER: mysqluser
-      WORDPRESS_DB_PASSWORD: MSPress#1
-      WORDPRESS_DB_NAME: databasename
-    volumes:
-      - "./:/var/www/html"
+URL="https://www.radio-nederland.nl"
+USER="radio"
 
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    restart: always
-    ports:
-      - "8080:80"
-    environment:
-      PMA_HOST: db
-      PMA_USER: mysqluser
-      PMA_PASSWORD: MSPress#1
+echo "Stap 1: Installeren van vereiste packages..."
+apt update
+apt install -y xserver-xorg xinit firefox-esr
 
-  openldap:
-    image: osixia/openldap:latest
-    restart: always
-    environment:
-      LDAP_ORGANISATION: "terborgh"
-      LDAP_DOMAIN: "terborgh.local"
-      LDAP_ADMIN_PASSWORD: MSPress#1
-    ports:
-      - "389:389"
+echo "Stap 2: Controleren of user $USER bestaat..."
+if ! id "$USER" &>/dev/null; then
+    echo "User $USER bestaat nog niet, maken..."
+    adduser --disabled-password --gecos "" "$USER"
+fi
 
-  phpldapadmin:
-    image: osixia/phpldapadmin:latest
-    restart: always
-    environment:
-      PHPLDAPADMIN_LDAP_HOSTS: openldap
-    ports:
-      - "6443:443"
+echo "Stap 3: .xsession aanmaken voor $USER..."
+cat > /home/$USER/.xsession <<EOF
+#!/bin/sh
+xset s off
+xset -dpms
+xset s noblank
+sleep 1
+exec firefox --kiosk "$URL"
+EOF
+chown $USER:$USER /home/$USER/.xsession
+chmod +x /home/$USER/.xsession
 
-volumes:
-  mysql: {}
+echo "Stap 4: Auto-login op tty1 instellen..."
+mkdir -p /etc/systemd/system/getty@tty1.service.d
+cat > /etc/systemd/system/getty@tty1.service.d/override.conf <<EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin $USER --noclear %I \$TERM
+EOF
 
-# Gebruik het officiële WordPress-image als basis
-FROM wordpress:latest
+echo "Stap 5: .bash_profile aanpassen zodat X automatisch start..."
+cat >> /home/$USER/.bash_profile <<'EOF'
 
-# Installeer vereiste pakketten voor LDAP
-RUN apt-get update && apt-get install -y \
-    libldap2-dev \
-    && docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu \
-    && docker-php-ext-install ldap
+# Start X automatisch op tty1
+if [[ -z $DISPLAY ]] && [[ $(tty) == /dev/tty1 ]]; then
+    exec startx
+fi
+EOF
+chown $USER:$USER /home/$USER/.bash_profile
 
-# Stel de werkdirectory in binnen de container
-WORKDIR /var/www/html
-
-# Stel de standaard commando in die uitgevoerd wordt
-CMD ["apache2-foreground"]
-
-
+echo "Klaar! Herstart nu de machine om Firefox in kiosk-mode automatisch te starten."
