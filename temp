@@ -53,26 +53,14 @@ EOF
 systemctl daemon-reload
 systemctl restart getty@tty1
 
-echo "Stap 6: Systemd user service voor kiosk aanmaken..."
-sudo -u $USER mkdir -p /home/$USER/.config/systemd/user
-cat > /home/$USER/.config/systemd/user/kiosk.service <<EOF
-[Unit]
-Description=Firefox kiosk for radio
-After=graphical.target dbus.service
+echo "Stap 6: .bash_profile aanpassen zodat X automatisch start bij login..."
+grep -q "# Start X automatisch op tty1" /home/$USER/.bash_profile || cat >> /home/$USER/.bash_profile <<'EOF'
 
-[Service]
-Type=simple
-ExecStart=/usr/bin/startx /home/$USER/.xsession -- :0 vt1 -keeptty
-Restart=always
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/$USER/.Xauthority
-
-[Install]
-WantedBy=default.target
+# Start X automatisch op tty1
+if [[ -z $DISPLAY ]] && [[ $(tty) == /dev/tty1 ]]; then
+    exec startx /home/radio/.xsession
+fi
 EOF
-
-# Activeer systemd user service
-sudo -u $USER systemctl --user daemon-reload
-sudo -u $USER systemctl --user enable kiosk.service
+chown $USER:$USER /home/$USER/.bash_profile
 
 echo "Klaar! Herstart de machine om Firefox automatisch in kiosk-mode te starten."
