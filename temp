@@ -4,67 +4,75 @@ set -e
 USER="radio"
 URL="https://www.radio-nederland.nl"
 
-echo "Stap 1: Oude kiosk service verwijderen..."
-if systemctl list-units --full -all | grep -q "kiosk.service"; then
-    systemctl stop kiosk.service || true
-    systemctl disable kiosk.service || true
-    rm -f /etc/systemd/system/kiosk.service
-    systemctl daemon-reload
-    systemctl reset-failed
-    echo "Oude kiosk.service verwijderd."
-else
-    echo "Geen oude kiosk.service gevonden."
+echo "Stap 1: Vereiste packages installeren..."
+apt update
+apt install -y xserver-xorg xinit firefox-esr dbus-x11
+
+echo "Stap 2: Controleren of user $USER bestaat..."
+if ! id "$USER" &>/dev/null; then
+    echo "User $USER bestaat nog niet, maken..."
+    adduser --disabled-password --gecos "" "$USER"
 fi
 
-echo "Stap 2: Oude .xsession of .bash_profile wijzigingen verwijderen..."
-if [ -f /home/$USER/.xsession ]; then
-    rm -f /home/$USER/.xsession
-    echo "Oude .xsession verwijderd."
-fi
+echo "Stap 3: Oude kiosk setup opruimen..."
+# Oude .xsession
+rm -f /home/$USER/.xsession
 
-# Verwijder auto-start X regel in .bash_profile
-if [ -f /home/$USER/.bash_profile ]; then
-    sed -i '/# Start X automatisch op tty1/,+3d' /home/$USER/.bash_profile || true
-    echo "Oude X start regels in .bash_profile verwijderd."
-fi
-
-# Verwijder oude override voor getty@tty1.service
+# Oude getty override
 if [ -d /etc/systemd/system/getty@tty1.service.d ]; then
     rm -rf /etc/systemd/system/getty@tty1.service.d
     systemctl daemon-reload
-    echo "Oude auto-login override verwijderd."
 fi
 
-echo "Stap 3: Nieuwe kiosk setup installeren..."
+# Stop oude kiosk service (indien aanwezig)
+if systemctl list-units --full -all | grep -q "kiosk"; then
+    systemctl stop kiosk.service || true
+    systemctl disable kiosk.service || true
+fi
 
-# .xsession maken
+echo "Stap 4: Nieuwe .xsession aanmaken..."
+mkdir -p /home/$USER
 cat > /home/$USER/.xsession <<EOF
 #!/bin/sh
 xset s off
 xset -dpms
 xset s noblank
 sleep 1
-exec firefox --kiosk "$URL"
+exec firefox --no-remote --disable-features=TranslateUI --kiosk "$URL"
 EOF
 chown $USER:$USER /home/$USER/.xsession
 chmod +x /home/$USER/.xsession
 
-# Auto-login op tty1 instellen
+echo "Stap 5: Auto-login op tty1 instellen..."
 mkdir -p /etc/systemd/system/getty@tty1.service.d
 cat > /etc/systemd/system/getty@tty1.service.d/override.conf <<EOF
 [Service]
 ExecStart=
 ExecStart=-/sbin/agetty --autologin $USER --noclear %I \$TERM
 EOF
+systemctl daemon-reload
+systemctl restart getty@tty1
 
-# .bash_profile aanpassen voor automatisch starten van X
-grep -q "# Start X automatisch op tty1" /home/$USER/.bash_profile || cat >> /home/$USER/.bash_profile <<'EOF'
+echo "Stap 6: Systemd user service voor kiosk aanmaken..."
+sudo -u $USER mkdir -p /home/$USER/.config/systemd/user
+cat > /home/$USER/.config/systemd/user/kiosk.service <<EOF
+[Unit]
+Description=Firefox kiosk for radio
+After=graphical.target dbus.service
 
-# Start X automatisch op tty1
-if [[ -z $DISPLAY ]] && [[ $(tty) == /dev/tty1 ]]; then
-    exec startx
-fi
+[Service]
+Type=simple
+ExecStart=/usr/bin/startx /home/$USER/.xsession -- :0 vt1 -keeptty
+Restart=always
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/$USER/.Xauthority
+
+[Install]
+WantedBy=default.target
 EOF
-chown $USER:$USER /home/$USER/.bash_profile
 
-echo "Klaar! Herstart de machine om de nieuwe kiosk setup te testen."
+# Activeer systemd user service
+sudo -u $USER systemctl --user daemon-reload
+sudo -u $USER systemctl --user enable kiosk.service
+
+echo "Klaar! Herstart de machine om Firefox automatisch in kiosk-mode te starten."
